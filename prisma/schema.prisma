@@ -1,0 +1,82 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client { 
+  provider = "prisma-client-js" 
+  output = "../src/generated/prisma" 
+} 
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Papel {
+  DIRETOR
+  DIRETOR_FOTOGRAFIA
+  SONOPLASTA
+  EDITOR
+  ROTEIRISTA
+  EFEITOS_VISUAIS
+}
+
+model Profissional {
+  id                    String        @id
+  nome                  String
+  precoMedio            Float
+  disponibilidadeInicio DateTime
+  disponibilidadeFim    DateTime
+  competencias          Competencia[]
+  avaliacoes            Avaliacao[]
+  convites              Convite[]
+}
+
+model Competencia {
+  id             String       @id @default(uuid())
+  nome           String
+  nivel          Int
+  profissionalId String
+  profissional   Profissional @relation(fields: [profissionalId], references: [id])
+}
+
+model Avaliacao {
+  id             String       @id @default(uuid())
+  nota           Float
+  comentario     String
+  data           DateTime
+  profissionalId String
+  profissional   Profissional @relation(fields: [profissionalId], references: [id])
+}
+
+model Projeto {
+  id            String         @id
+  genero        String
+  duracao       Int
+  orcamento     Float
+  prazo         DateTime
+  recomendacoes Recomendacao[]
+  convites      Convite[]
+}
+
+model Recomendacao {
+  id        String   @id @default(uuid())
+  papel     Papel
+  peso      Float
+  criadaEm  DateTime @default(now())
+  projetoId String
+  projeto   Projeto  @relation(fields: [projetoId], references: [id])
+}
+
+model Convite {
+  id             String       @id @default(uuid())
+  papel          Papel
+  status         String
+  criadoEm       DateTime     @default(now())
+  projetoId      String
+  projeto        Projeto      @relation(fields: [projetoId], references: [id])
+  profissionalId String
+  profissional   Profissional @relation(fields: [profissionalId], references: [id])
+}
