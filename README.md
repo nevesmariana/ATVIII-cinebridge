@@ -1,5 +1,6 @@
 # Cinebridge: Microsserviço de Recomendação e Orquestração de Equipes
-Microsserviço que recomenda e monta equipes técnicas para projetos audiovisuais independentes. 
+
+Microsserviço que recomenda e monta equipes técnicas para projetos audiovisuais independentes. Recebe um projeto (gênero, orçamento, prazo e papéis exigidos), consulta os profissionais cadastrados e devolve uma equipe sugerida.
 
 ## Stack técnica
 
@@ -14,6 +15,28 @@ Microsserviço que recomenda e monta equipes técnicas para projetos audiovisuai
 | ts-jest | 29.4.14 |
 | tsx | 4.23.15 |
 
+Os pacotes npm têm as versões fixadas no `package-lock.json`, então `npm install` reproduz exatamente o ambiente testado.
+
+## Padrões de projeto aplicados
+
+| Padrão | Localização | Papel |
+|---|---|---|
+| Strategy | `src/strategies/` | Troca o algoritmo de recomendação (similaridade de cosseno, filtragem colaborativa, regras de orçamento) sem alterar o restante do fluxo |
+| Template Method | `src/orchestration/` | Fixa o esqueleto da orquestração (validar restrições, normalizar dados, recomendar, pós-processar), delegando os passos específicos às subclasses |
+| Observer | `src/observers/` | Notifica vários interessados (e-mail, mensagem interna, auditoria) a cada recomendação, sem acoplar o sistema a cada notificador |
+| Visitor | `src/visitors/` | Executa operações transversais (validação de consistência, cálculo de compatibilidade, relatório) sobre `Projeto` e `Profissional`, sem poluir essas classes |
+| Prototype | `src/domain/Projeto.ts` + subclasses | `clonar()` devolve uma cópia profunda e independente de um projeto, preservando o tipo concreto (`ProjetoDocumentario`, `ProjetoAnimacao`, `ProjetoPublicitario`) |
+| Factory Method | `src/factories/<genero>/` | Cada fábrica concreta decide COMO construir o recomendador, o validador e o notificador do seu próprio gênero |
+| Abstract Factory | `src/factories/FabricaProjeto.ts` + fábricas concretas | Garante que validador, recomendador e notificador de um mesmo projeto pertençam sempre à MESMA família (gênero), nunca misturados |
+
+### Gêneros de projeto (Abstract Factory, seleção automática — rota `/recomendacoes/:tipo`)
+
+| Gênero | Fábrica | Campos extras | Regra de recomendação específica | Regra de validação específica |
+|---|---|---|---|---|
+| `documentario` | `FabricaDocumentario` | `tema`, `entrevistados` | Prioriza quem tem competência de `entrevista` no papel de Diretor | Reprova se não houver nenhum entrevistado definido |
+| `animacao` | `FabricaAnimacao` | `motorGrafico`, `resolucaoEntrega` | Prioriza quem tem competência de `modelagem3d` no papel de Efeitos Visuais | Reprova se o motor gráfico não estiver definido |
+| `publicitario` | `FabricaPublicitario` | `cliente`, `plataformasDistribuicao` | Prioriza quem tem competência de `motion-graphics` no papel de Editor | Reprova se faltar cliente ou plataforma de distribuição |
+
 ## Como rodar
 
 ### 1. Pré-requisitos
@@ -25,13 +48,11 @@ Microsserviço que recomenda e monta equipes técnicas para projetos audiovisuai
 
 ```bash
 git clone https://github.com/nevesmariana/ATVI-cinebridge.git
-cd ATVI-cinebridge
+cd ATVII-cinebridge
 npm install
 ```
 
 ### 3. Configurar o banco
-
-Copie o arquivo de exemplo:
 
 ```bash
 # Linux / macOS
@@ -41,7 +62,7 @@ cp .env.example .env
 copy .env.example .env
 ```
 
-Edite o `.env` e troque `SUA_SENHA` pela senha do seu PostgreSQL. Caracteres especiais precisam ser codificados na URL (`#` vira `%23`, `@` vira `%40`). O usuário padrão é `postgres`; ajuste se for outro.
+Edite o `.env` e troque `SUA_SENHA` pela senha do seu PostgreSQL. Caracteres especiais precisam ser codificados na URL (`#` vira `%23`, `@` vira `%40`).
 
 ### 4. Criar as tabelas e popular o banco
 
@@ -51,8 +72,6 @@ npx prisma generate
 npx tsx prisma/seed.ts
 ```
 
-O `migrate dev` cria o banco `cinebridge_db` caso ele ainda não exista. O seed apaga e recria 6 profissionais de teste.
-
 ### 5. Subir a API
 
 ```bash
@@ -61,11 +80,9 @@ npm run dev:server
 
 O servidor sobe em `http://localhost:3000`.
 
-### 6. Testar a rota de recomendação
+### 6. Testar as rotas de recomendação
 
-`POST /recomendacoes`
-
-Linux / macOS:
+**Rota da Atividade 1** — `POST /recomendacoes`, escolhendo a estratégia manualmente:
 
 ```bash
 curl -X POST http://localhost:3000/recomendacoes \
@@ -73,33 +90,25 @@ curl -X POST http://localhost:3000/recomendacoes \
   -d '{"projeto":{"id":"proj-1","genero":"documentario","duracao":90,"orcamento":30000,"prazo":"2035-01-01","papeisExigidos":[{"papel":"DIRETOR","peso":1},{"papel":"EDITOR","peso":0.8},{"papel":"SONOPLASTA","peso":0.6}]},"estrategia":"similaridadeCosseno"}'
 ```
 
-Windows (cmd; no PowerShell use `curl.exe` em vez de `curl`):
+**Rota da Atividade 2** — `POST /recomendacoes/:tipo`, a fábrica do gênero escolhe tudo sozinha:
+
+```bash
+curl -X POST http://localhost:3000/recomendacoes/documentario \
+  -H "Content-Type: application/json" \
+  -d '{"dados":{"id":"doc-1","genero":"documentario","duracao":60,"orcamento":20000,"prazo":"2035-01-01","papeisExigidos":[{"papel":"DIRETOR","peso":1},{"papel":"EDITOR","peso":0.8}],"tema":"cultura nordestina","entrevistados":["Maria","Joao"]}}'
+```
+
+Troque `/documentario` por `/animacao` ou `/publicitario` (ajustando os campos extras de `dados` conforme a tabela de gêneros acima).
+
+Windows (cmd), mesma ideia com aspas escapadas:
 
 ```bat
-curl -X POST http://localhost:3000/recomendacoes ^
+curl -X POST http://localhost:3000/recomendacoes/documentario ^
   -H "Content-Type: application/json" ^
-  -d "{\"projeto\":{\"id\":\"proj-1\",\"genero\":\"documentario\",\"duracao\":90,\"orcamento\":30000,\"prazo\":\"2035-01-01\",\"papeisExigidos\":[{\"papel\":\"DIRETOR\",\"peso\":1},{\"papel\":\"EDITOR\",\"peso\":0.8},{\"papel\":\"SONOPLASTA\",\"peso\":0.6}]},\"estrategia\":\"similaridadeCosseno\"}"
+  -d "{\"dados\":{\"id\":\"doc-1\",\"genero\":\"documentario\",\"duracao\":60,\"orcamento\":20000,\"prazo\":\"2035-01-01\",\"papeisExigidos\":[{\"papel\":\"DIRETOR\",\"peso\":1},{\"papel\":\"EDITOR\",\"peso\":0.8}],\"tema\":\"cultura nordestina\",\"entrevistados\":[\"Maria\",\"Joao\"]}}"
 ```
-
-Resposta esperada (equipe recomendada):
-
-```json
-{
-  "projetoId": "proj-1",
-  "equipeId": "equipe-proj-1",
-  "membros": [
-    { "papel": "DIRETOR", "profissionalId": "p1", "profissionalNome": "Ana Silva" },
-    { "papel": "EDITOR", "profissionalId": "p2", "profissionalNome": "Bruno Costa" },
-    { "papel": "SONOPLASTA", "profissionalId": "p3", "profissionalNome": "Carla Dias" }
-  ]
-}
-```
-
-Troque o campo `estrategia` por `filtragemColaborativa` ou `regrasOrcamento` para ver a recomendação mudar. Se o projeto for inválido (orçamento zero, prazo no passado ou sem papéis), a API responde `422`; sem o campo `projeto`, responde `400`.
 
 ### 7. Rodar a demonstração no console
-
-Executa um cenário completo (troca de estratégia, observadores e visitantes) sem passar pelo HTTP:
 
 ```bash
 npm run dev
@@ -110,5 +119,3 @@ npm run dev
 ```bash
 npm test
 ```
-
-Roda os testes unitários e de integração e exibe o relatório de cobertura (meta mínima de 80% configurada no `jest.config.js`). Os testes usam o repositório em memória, então não precisam do PostgreSQL.

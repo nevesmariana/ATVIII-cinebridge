@@ -15,9 +15,10 @@ import { SimilaridadeCosseno } from '../strategies/SimilaridadeCosseno';
 import { NotificadorEmail } from '../observers/NotificadorEmail';
 import { NotificadorInterno } from '../observers/NotificadorInterno';
 import { AuditoriaRecomendacao } from '../observers/AuditoriaRecomendacao';
+import { FabricaDocumentario } from '../factories/documentario/FabricaDocumentario';
+import { FabricaAnimacao } from '../factories/animacao/FabricaAnimacao';
+import { FabricaPublicitario } from '../factories/publicitario/FabricaPublicitario';
 
-// Extraido do server.ts para podermos 'montar' o app tanto em producao quanto em testes,
-// passando qualquer implementacao de RepositorioProfissional (memoria ou Prisma).
 export function buildApp(
     repositorio: RepositorioProfissional
 ): FastifyInstance {
@@ -47,6 +48,21 @@ export function buildApp(
 
     sistema.adicionarObservador(
         new AuditoriaRecomendacao()
+    );
+
+    sistema.registrarFabrica(
+        'documentario',
+        new FabricaDocumentario()
+    );
+
+    sistema.registrarFabrica(
+        'animacao',
+        new FabricaAnimacao()
+    );
+
+    sistema.registrarFabrica(
+        'publicitario',
+        new FabricaPublicitario()
     );
 
     registrarRotas(

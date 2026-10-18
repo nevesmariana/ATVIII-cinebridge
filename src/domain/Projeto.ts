@@ -68,6 +68,17 @@ export class Projeto {
         return solicitado;
     }
 
+    clonar(): Projeto {
+        return new Projeto(
+            this.id,
+            this.genero,
+            this.duracao,
+            this.orcamento,
+            new Date(this.prazo.getTime()),
+            this.papeisExigidos.map((p) => ({ ...p }))
+        );
+    }
+
     aceitar<T>(
         visitante: VisitanteProjeto<T>
     ): T {

@@ -4,12 +4,22 @@ import { Projeto } from '../domain/Projeto';
 import { Equipe } from '../domain/Equipe';
 import { RecomendacaoStrategy } from '../strategies/RecomendacaoStrategy';
 import { RepositorioProfissional } from '../repositories/RepositorioProfissional';
+import { FabricaProjeto } from '../factories/FabricaProjeto';
 
 export abstract class OrquestradorEquipe {
+    protected fabrica?: FabricaProjeto;
 
     constructor(
-        protected readonly repositorio: RepositorioProfissional
-    ) { }
+        protected readonly repositorio: RepositorioProfissional,
+        fabrica?: FabricaProjeto
+    ) {
+        this.fabrica = fabrica;
+    }
+
+    usarFabrica(fabrica: FabricaProjeto): this {
+        this.fabrica = fabrica;
+        return this;
+    }
 
     async orquestrar(
         projeto: Projeto,
@@ -24,10 +34,11 @@ export abstract class OrquestradorEquipe {
         const candidatos =
             await this.repositorio.listarTodos();
 
-        const normalizados = this.normalizarDados(
-            projeto,
-            candidatos
-        );
+        const normalizados =
+            this.normalizarDados(
+                projeto,
+                candidatos
+            );
 
         const recomendacoesBrutas =
             estrategia.recomendar(
@@ -44,6 +55,37 @@ export abstract class OrquestradorEquipe {
             projeto,
             recomendacoesFinais
         );
+    }
+
+    async orquestrarComFabrica(
+        projeto: Projeto
+    ): Promise<Equipe> {
+        if (!this.fabrica) {
+            throw new Error(
+                'Nenhuma FabricaProjeto foi configurada neste orquestrador'
+            );
+        }
+
+        const equipe =
+            await this.orquestrar(
+                projeto,
+                this.fabrica.criarRecomendador()
+            );
+
+        const validador =
+            this.fabrica.criarValidador();
+
+        if (!projeto.aceitar(validador)) {
+            throw new Error(
+                'A equipe formada nao atende as regras de consistencia deste genero de projeto'
+            );
+        }
+
+        return equipe;
+    }
+
+    getRepositorio(): RepositorioProfissional {
+        return this.repositorio;
     }
 
     protected abstract validarRestricoes(
@@ -81,11 +123,10 @@ export abstract class OrquestradorEquipe {
                     escolhido
                 );
 
-                jaAlocados.add(
-                    escolhido.id
-                );
+                jaAlocados.add(escolhido.id);
             }
         }
+
         projeto.define(equipe);
 
         return equipe;
