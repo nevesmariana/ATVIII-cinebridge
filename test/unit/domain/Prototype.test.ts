@@ -4,7 +4,8 @@ import { ProjetoDocumentario } from '../../../src/domain/ProjetoDocumentario';
 import { Papel } from '../../../src/domain/Papel';
 import { ProjetoAnimacao } from '../../../src/domain/ProjetoAnimacao';
 import { ProjetoPublicitario } from '../../../src/domain/ProjetoPublicitario';
-
+import { PacoteServico } from '../../../src/servicos/PacoteServico';
+import { ServicoAtomico } from '../../../src/servicos/ServicoAtomico';
 
 describe('Prototype: Projeto.clonar()', () => {
     it('clona um Projeto básico com valores independentes do original', () => {
@@ -33,14 +34,13 @@ describe('Prototype: Projeto.clonar()', () => {
             original.prazo.getTime()
         );
 
-        clone.papeisExigidos.push({
-            papel: Papel.EDITOR,
-            peso: 0.5
-        });
+        (clone.servicoPrincipal as PacoteServico).adicionar(
+            new ServicoAtomico('Edicao extra', 100, 5, Papel.EDITOR, 0.5)
+        );
 
-        expect(original.papeisExigidos).toHaveLength(1);
+        expect(original.exige()).toHaveLength(1);
 
-        expect(clone.papeisExigidos).toHaveLength(2);
+        expect(clone.exige()).toHaveLength(2);
     });
 
     it('clonar() de uma subclasse preserva o tipo concreto e os campos extras', () => {

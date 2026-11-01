@@ -11,6 +11,9 @@ import { AuditoriaRecomendacao } from './observers/AuditoriaRecomendacao';
 import { GeradorRelatorio } from './visitors/GeradorRelatorio';
 import { ValidadorConsistencia } from './visitors/ValidadorConsistencia';
 import { CalculadorCompatibilidade } from './visitors/CalculadorCompatibilidade';
+import { RecomendadorBase } from './strategies/RecomendadorBase';
+import { RegistradorAuditoriaConsole } from './decorators/AuditoriaDecorator';
+import { lerDecoradoresConfigurados, montarPilhaRecomendador } from './decorators/montarPilhaRecomendador';
 
 async function main(): Promise<void> {
     const repositorio =
@@ -24,6 +27,23 @@ async function main(): Promise<void> {
             orquestrador,
             new SimilaridadeCosseno()
         );
+
+    const decoradores = lerDecoradoresConfigurados(
+        process.env.CINEBRIDGE_DECORADORES
+    );
+
+    if (decoradores.length > 0) {
+        sistema.definirEstrategia(
+            montarPilhaRecomendador(
+                new RecomendadorBase(),
+                decoradores,
+                { registrador: new RegistradorAuditoriaConsole() }
+            ).topo
+        );
+        console.log(
+            `Decoradores ativos (do interno para o externo): ${decoradores.join(' -> ')}`
+        );
+    }
 
     const auditoria =
         new AuditoriaRecomendacao();

@@ -2,13 +2,18 @@ import { Papel } from './Papel';
 import { Equipe } from './Equipe';
 import { Profissional } from './Profissional';
 import { VisitanteProjeto } from '../visitors/VisitanteProjeto';
+import { ServicoProjeto } from '../servicos/ServicoProjeto';
+import { montarServicoPrincipal } from '../servicos/montarServicoPrincipal';
 
 export interface PapelExigido {
     papel: Papel;
     peso: number;
 }
 
+export type ServicoOuPapeis = ServicoProjeto | PapelExigido[];
+
 export class Projeto {
+    public readonly servicoPrincipal: ServicoProjeto;
     private equipe: Equipe | null = null;
     private reavaliacaoSolicitada = false;
 
@@ -18,15 +23,31 @@ export class Projeto {
         public readonly duracao: number,
         public readonly orcamento: number,
         public readonly prazo: Date,
-        public readonly papeisExigidos: PapelExigido[]
-    ) { }
+        servicoOuPapeis: ServicoOuPapeis
+    ) {
+        this.servicoPrincipal = Array.isArray(servicoOuPapeis)
+            ? montarServicoPrincipal(servicoOuPapeis, orcamento)
+            : servicoOuPapeis;
+    }
+
+    calcularCustoTotal(): number {
+        return this.servicoPrincipal.calcularCusto();
+    }
+
+    validarEstrutura(): boolean {
+        return this.servicoPrincipal.validar();
+    }
 
     define(equipe: Equipe): void {
         this.equipe = equipe;
     }
 
     exige(): ReadonlyArray<PapelExigido> {
-        return this.papeisExigidos;
+        const pesoPorPapel = new Map<Papel, number>();
+        for (const { papel, peso } of this.servicoPrincipal.listarPapeis()) {
+            pesoPorPapel.set(papel, (pesoPorPapel.get(papel) ?? 0) + peso);
+        }
+        return [...pesoPorPapel].map(([papel, peso]) => ({ papel, peso }));
     }
 
     getEquipe(): Equipe | null {
@@ -75,8 +96,7 @@ export class Projeto {
             this.duracao,
             this.orcamento,
             new Date(this.prazo.getTime()),
-            this.papeisExigidos.map((p) => ({ ...p }))
-        );
+            this.servicoPrincipal.clonar());
     }
 
     aceitar<T>(

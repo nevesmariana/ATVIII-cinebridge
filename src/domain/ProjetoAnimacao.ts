@@ -1,4 +1,4 @@
-import { Projeto, PapelExigido } from './Projeto';
+import { Projeto, ServicoOuPapeis } from './Projeto';
 
 export class ProjetoAnimacao extends Projeto {
     constructor(
@@ -7,7 +7,7 @@ export class ProjetoAnimacao extends Projeto {
         duracao: number,
         orcamento: number,
         prazo: Date,
-        papeisExigidos: PapelExigido[],
+        servicoOuPapeis: ServicoOuPapeis,
         public readonly motorGrafico: string,
         public readonly resolucaoEntrega: string
     ) {
@@ -17,7 +17,7 @@ export class ProjetoAnimacao extends Projeto {
             duracao,
             orcamento,
             prazo,
-            papeisExigidos
+            servicoOuPapeis
         );
     }
 
@@ -28,7 +28,7 @@ export class ProjetoAnimacao extends Projeto {
             this.duracao,
             this.orcamento,
             new Date(this.prazo.getTime()),
-            this.papeisExigidos.map((p) => ({ ...p })),
+            this.servicoPrincipal.clonar(),
             this.motorGrafico,
             this.resolucaoEntrega
         );
